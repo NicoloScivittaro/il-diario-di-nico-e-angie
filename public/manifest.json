@@ -1,0 +1,22 @@
+{
+  "name": "Il nostro amore",
+  "short_name": "Amore ❤️",
+  "theme_color": "#f43f5e",
+  "background_color": "#fff1f2",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
