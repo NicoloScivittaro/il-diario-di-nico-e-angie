@@ -3,11 +3,19 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Place } from '@/lib/types';
+import type { Place } from '@/lib/types';
 
-// Custom Icons Definitions
+export interface LeafletMapProps {
+    places: Place[];
+    center: [number, number];
+    zoom: number;
+    onMapClick: (lat: number, lng: number) => void;
+    onMarkerClick: (place: Place) => void;
+}
+
+// --- icone (uguali alle tue) ---
 const createCustomIcon = (type: 'visited' | 'to_visit') => {
-    const color = type === 'visited' ? '#e11d48' : '#a855f7'; // rose-600 vs purple-500
+    const color = type === 'visited' ? '#e11d48' : '#a855f7';
     const iconSvg =
         type === 'visited'
             ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="${color}" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8"><path d="M19 14c1.49-1.28 3.6-2.34 3.6-5a6 6 0 0 0-11.5-2 6 6 0 0 0-5.88 5.6C4.1 14.63 11 20 12 22v-3c2 0 4-1 6-4Z"/></svg>`
@@ -25,17 +33,6 @@ const createCustomIcon = (type: 'visited' | 'to_visit') => {
 const visitedIcon = createCustomIcon('visited');
 const toVisitIcon = createCustomIcon('to_visit');
 
-// ✅ Tipo “safe” per il click marker (category non rompe più il build)
-type MarkerPlace = Place & { category?: string | null };
-
-interface LeafletMapProps {
-    places: Place[];
-    center: [number, number];
-    zoom: number;
-    onMapClick: (lat: number, lng: number) => void;
-    onMarkerClick: (place: MarkerPlace) => void; // ✅ cambiato qui
-}
-
 export default function LeafletMap({
     places,
     center,
@@ -47,7 +44,6 @@ export default function LeafletMap({
     const mapInstanceRef = useRef<L.Map | null>(null);
     const markersRef = useRef<Record<string, L.Marker>>({});
 
-    // 1. Initialize Map (Run Once)
     useEffect(() => {
         if (!mapContainerRef.current) return;
         if (mapInstanceRef.current) return;
@@ -61,15 +57,11 @@ export default function LeafletMap({
             attribution: '&copy; OpenStreetMap contributors',
         }).addTo(map);
 
-        map.on('click', (e: L.LeafletMouseEvent) => {
-            onMapClick(e.latlng.lat, e.latlng.lng);
-        });
+        map.on('click', (e) => onMapClick(e.latlng.lat, e.latlng.lng));
 
         mapInstanceRef.current = map;
 
-        setTimeout(() => {
-            map.invalidateSize();
-        }, 100);
+        setTimeout(() => map.invalidateSize(), 100);
 
         return () => {
             map.off();
@@ -79,7 +71,6 @@ export default function LeafletMap({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // 2. Sync Markers with Places
     useEffect(() => {
         const map = mapInstanceRef.current;
         if (!map) return;
@@ -87,7 +78,6 @@ export default function LeafletMap({
         const currentMarkers = markersRef.current;
         const activeIds = new Set(places.map((p) => p.id));
 
-        // Remove markers that are no longer in places
         Object.keys(currentMarkers).forEach((id) => {
             if (!activeIds.has(id)) {
                 currentMarkers[id].remove();
@@ -95,17 +85,13 @@ export default function LeafletMap({
             }
         });
 
-        // Add or Update markers
         places.forEach((place) => {
             const icon = place.status === 'visited' ? visitedIcon : toVisitIcon;
 
             const popupContent = `
         <div class="font-sans text-sm min-w-[150px]">
           <p class="font-bold text-gray-800 mb-1">${place.name}</p>
-          ${place.rating
-                    ? `<p class="text-yellow-500 text-xs">Rating: ${'★'.repeat(place.rating)}</p>`
-                    : ''
-                }
+          ${place.rating ? `<p class="text-yellow-500 text-xs">Rating: ${'★'.repeat(place.rating)}</p>` : ''}
         </div>
       `;
 
@@ -118,12 +104,8 @@ export default function LeafletMap({
                     .bindPopup(popupContent);
 
                 marker.on('click', () => {
-                    // ✅ passiamo sempre un oggetto “safe”
-                    const safePlace: MarkerPlace = {
-                        ...place,
-                        category: (place as any).category ?? 'Altro',
-                    };
-                    onMarkerClick(safePlace);
+                    // ✅ passa un Place coerente (category può essere null/undefined)
+                    onMarkerClick(place);
                 });
 
                 currentMarkers[place.id] = marker;
