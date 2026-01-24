@@ -298,7 +298,10 @@ export default function MapPage() {
           center={center}
           zoom={13}
           onMapClick={handleMapClick}
-          onMarkerClick={(p: any) => setSelectedPlace({ ...p, category: p.category ?? 'Altro' })}
+          onMarkerClick={(p: any) => {
+            const safe: SelectedPlace = { ...p, category: p.category ?? 'Altro' };
+            setSelectedPlace(safe);
+          }}
         />
 
         {/* Add/Edit Modal (Overlay) */}
