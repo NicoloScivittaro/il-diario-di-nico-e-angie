@@ -7,7 +7,7 @@ import {
   MapPin, Heart, Star, Search, Plus, Navigation,
   Filter, Check, X, Loader2, Camera, Trash2, Map as MapIcon
 } from 'lucide-react';
-import { Place } from '@/lib/types';
+import { Place as DbPlace } from '@/lib/types';
 import type { Session } from '@supabase/supabase-js';
 
 // Dynamically import the Map component to avoid SSR issues
@@ -23,15 +23,29 @@ const Map = dynamic(() => import('@/components/LeafletMap'), {
 
 const CATEGORIES = ['Ristorante', 'Passeggiata', 'Parco', 'Monumento', 'Museo', 'Altro'];
 
+// Local robust type definition to handle optional/missing fields safely
+type MapPlace = {
+  id: string;
+  name: string;
+  category?: string | null;
+  status: 'visited' | 'to_visit';
+  rating?: number;
+  lat: number;
+  lng: number;
+  notes?: string;
+  image_url?: string;
+  date?: string;
+};
+
 export default function MapPage() {
-  const [places, setPlaces] = useState<Place[]>([]);
-  const [filteredPlaces, setFilteredPlaces] = useState<Place[]>([]);
+  const [places, setPlaces] = useState<MapPlace[]>([]);
+  const [filteredPlaces, setFilteredPlaces] = useState<MapPlace[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'visited' | 'to_visit'>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
   // UI State
-  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
+  const [selectedPlace, setSelectedPlace] = useState<MapPlace | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [newPlacePosition, setNewPlacePosition] = useState<{ lat: number, lng: number } | null>(null);
 
@@ -67,7 +81,7 @@ export default function MapPage() {
   // Load from both sources
   const fetchPlaces = async () => {
     setIsLoading(true);
-    let allPlaces: Place[] = [];
+    let allPlaces: MapPlace[] = [];
 
     // 1. Try Supabase
     try {
@@ -78,7 +92,7 @@ export default function MapPage() {
       if (error) {
         console.warn('Supabase fetch error (table might be missing or RLS issue):', error.message);
       } else if (data) {
-        allPlaces = [...data as Place[]];
+        allPlaces = [...data as unknown as MapPlace[]];
       }
     } catch (err) {
       console.error('Network/Supabase connection error:', err);
@@ -91,7 +105,7 @@ export default function MapPage() {
         const parsed = JSON.parse(local);
         // Avoid duplicates if ID exists in Supabase (simple check by ID)
         const remoteIds = new Set(allPlaces.map(p => p.id));
-        const localOnly = parsed.filter((p: Place) => !remoteIds.has(p.id));
+        const localOnly = parsed.filter((p: MapPlace) => !remoteIds.has(p.id));
         allPlaces = [...allPlaces, ...localOnly];
       }
     } catch (e) {
@@ -121,7 +135,7 @@ export default function MapPage() {
     // Fallback ID and mocked fields for local usage
     const tempId = crypto.randomUUID();
 
-    const newPlace: Place = {
+    const newPlace: MapPlace = {
       id: tempId,
       name: formName,
       category: formCategory,
@@ -157,7 +171,7 @@ export default function MapPage() {
           dbErrorMsg = error.message;
           // Don't throw, just let it fall through to local save
         } else if (data) {
-          setPlaces(prev => [...prev, data as Place]);
+          setPlaces(prev => [...prev, data as unknown as MapPlace]);
           savedToDb = true;
         }
       } catch (err) {
@@ -291,11 +305,11 @@ export default function MapPage() {
       {/* Map Container */}
       <div className="flex-1 glass-card rounded-3xl overflow-hidden shadow-xl border border-white/60 relative">
         <Map
-          places={filteredPlaces}
+          places={filteredPlaces as unknown as DbPlace[]}
           center={center}
           zoom={13}
           onMapClick={handleMapClick}
-          onMarkerClick={(p: any) => setSelectedPlace(p)}
+          onMarkerClick={(p: any) => setSelectedPlace({ ...p, category: p.category ?? 'Altro' })}
         />
 
         {/* Add/Edit Modal (Overlay) */}
