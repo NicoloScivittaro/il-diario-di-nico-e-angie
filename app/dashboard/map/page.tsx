@@ -23,29 +23,18 @@ const Map = dynamic(() => import('@/components/LeafletMap'), {
 
 const CATEGORIES = ['Ristorante', 'Passeggiata', 'Parco', 'Monumento', 'Museo', 'Altro'];
 
-// Local robust type definition to handle optional/missing fields safely
-type MapPlace = {
-  id: string;
-  name: string;
-  category?: string | null;
-  status: 'visited' | 'to_visit';
-  rating?: number;
-  lat: number;
-  lng: number;
-  notes?: string;
-  image_url?: string;
-  date?: string;
-};
+// UI Type that handles optional category safely
+type SelectedPlace = DbPlace & { category?: string | null };
 
 export default function MapPage() {
-  const [places, setPlaces] = useState<MapPlace[]>([]);
-  const [filteredPlaces, setFilteredPlaces] = useState<MapPlace[]>([]);
+  const [places, setPlaces] = useState<DbPlace[]>([]);
+  const [filteredPlaces, setFilteredPlaces] = useState<DbPlace[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'visited' | 'to_visit'>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
   // UI State
-  const [selectedPlace, setSelectedPlace] = useState<MapPlace | null>(null);
+  const [selectedPlace, setSelectedPlace] = useState<SelectedPlace | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [newPlacePosition, setNewPlacePosition] = useState<{ lat: number, lng: number } | null>(null);
 
@@ -81,7 +70,7 @@ export default function MapPage() {
   // Load from both sources
   const fetchPlaces = async () => {
     setIsLoading(true);
-    let allPlaces: MapPlace[] = [];
+    let allPlaces: DbPlace[] = [];
 
     // 1. Try Supabase
     try {
@@ -92,7 +81,7 @@ export default function MapPage() {
       if (error) {
         console.warn('Supabase fetch error (table might be missing or RLS issue):', error.message);
       } else if (data) {
-        allPlaces = [...data as unknown as MapPlace[]];
+        allPlaces = [...data as unknown as DbPlace[]];
       }
     } catch (err) {
       console.error('Network/Supabase connection error:', err);
@@ -105,7 +94,7 @@ export default function MapPage() {
         const parsed = JSON.parse(local);
         // Avoid duplicates if ID exists in Supabase (simple check by ID)
         const remoteIds = new Set(allPlaces.map(p => p.id));
-        const localOnly = parsed.filter((p: MapPlace) => !remoteIds.has(p.id));
+        const localOnly = parsed.filter((p: DbPlace) => !remoteIds.has(p.id));
         allPlaces = [...allPlaces, ...localOnly];
       }
     } catch (e) {
@@ -135,7 +124,7 @@ export default function MapPage() {
     // Fallback ID and mocked fields for local usage
     const tempId = crypto.randomUUID();
 
-    const newPlace: MapPlace = {
+    const newPlace: DbPlace = {
       id: tempId,
       name: formName,
       category: formCategory,
@@ -171,7 +160,7 @@ export default function MapPage() {
           dbErrorMsg = error.message;
           // Don't throw, just let it fall through to local save
         } else if (data) {
-          setPlaces(prev => [...prev, data as unknown as MapPlace]);
+          setPlaces(prev => [...prev, data as unknown as DbPlace]);
           savedToDb = true;
         }
       } catch (err) {
