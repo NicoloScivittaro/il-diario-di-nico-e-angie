@@ -7,6 +7,7 @@ import {
   MapPin, Heart, Star, Search, Plus, Navigation,
   Filter, Check, X, Loader2, Camera, Trash2, Map as MapIcon
 } from 'lucide-react';
+import { Place } from '@/lib/types';
 import type { Session } from '@supabase/supabase-js';
 
 // Dynamically import the Map component to avoid SSR issues
@@ -19,19 +20,6 @@ const Map = dynamic(() => import('@/components/LeafletMap'), {
     </div>
   )
 });
-
-type Place = {
-  id: string;
-  name: string;
-  category?: string;
-  status: 'visited' | 'to_visit';
-  rating?: number;
-  lat: number;
-  lng: number;
-  notes?: string;
-  image_url?: string;
-  date?: string;
-};
 
 const CATEGORIES = ['Ristorante', 'Passeggiata', 'Parco', 'Monumento', 'Museo', 'Altro'];
 

@@ -23,16 +23,7 @@ const createCustomIcon = (type: 'visited' | 'to_visit') => {
 const visitedIcon = createCustomIcon('visited');
 const toVisitIcon = createCustomIcon('to_visit');
 
-type Place = {
-    id: string;
-    name: string;
-    lat: number;
-    lng: number;
-    status: 'visited' | 'to_visit';
-    rating?: number;
-    category?: string;
-    notes?: string;
-};
+import { Place } from '@/lib/types';
 
 interface LeafletMapProps {
     places: Place[];
