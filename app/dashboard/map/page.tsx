@@ -23,7 +23,7 @@ const Map = dynamic(() => import('@/components/LeafletMap'), {
 type Place = {
   id: string;
   name: string;
-  category: string;
+  category?: string;
   status: 'visited' | 'to_visit';
   rating?: number;
   lat: number;

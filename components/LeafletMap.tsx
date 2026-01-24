@@ -30,6 +30,8 @@ type Place = {
     lng: number;
     status: 'visited' | 'to_visit';
     rating?: number;
+    category?: string;
+    notes?: string;
 };
 
 interface LeafletMapProps {
