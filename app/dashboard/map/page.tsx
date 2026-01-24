@@ -295,7 +295,7 @@ export default function MapPage() {
           center={center}
           zoom={13}
           onMapClick={handleMapClick}
-          onMarkerClick={(p) => setSelectedPlace(p)}
+          onMarkerClick={(p: any) => setSelectedPlace(p)}
         />
 
         {/* Add/Edit Modal (Overlay) */}
