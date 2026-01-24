@@ -298,13 +298,13 @@ export default function MapPage() {
           center={center}
           zoom={13}
           onMapClick={handleMapClick}
-          onMarkerClick={(p: any) => {
-            const safe: SelectedPlace = { ...p, category: p.category ?? 'Altro' };
-            setSelectedPlace(safe);
+          onMarkerClick={(p: SelectedPlace) => {
+            setSelectedPlace({ ...p, category: p.category ?? 'Altro' });
           }}
         />
 
         {/* Add/Edit Modal (Overlay) */}
+
         {(isAdding || selectedPlace) && (
           <div className="absolute top-4 right-4 w-72 bg-white/95 backdrop-blur-xl p-5 rounded-2xl shadow-2xl z-[1000] border border-rose-100 animate-slide-up">
             <button
