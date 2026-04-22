@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Dices, RefreshCw, Trophy, Heart, Plus, Trash2, Settings2 } from 'lucide-react';
+import { Dices, RefreshCw, Trophy, Heart, Plus, Trash2, Settings2, Undo2 } from 'lucide-react';
 
 const INITIAL_OPTIONS = [
   "Cena sushi",
@@ -124,6 +124,25 @@ export default function WheelPage() {
     if (isSpinning) return;
     const newOptions = options.filter((_, i) => i !== index);
     setOptions(newOptions);
+  };
+
+  const handleRestoreOption = (index: number) => {
+    if (isSpinning) return;
+    const optToRestore = extracted[index];
+    
+    // Rimuovi dalle estratte
+    const newExtracted = extracted.filter((_, i) => i !== index);
+    setExtracted(newExtracted);
+
+    // Aggiungi di nuovo alla ruota se non c'è già
+    if (!options.includes(optToRestore)) {
+      setOptions([...options, optToRestore]);
+    }
+
+    // Se era l'ultimo risultato, lo togliamo dal display principale
+    if (result === optToRestore) {
+      setResult(null);
+    }
   };
 
   if (!isClient) return null;
@@ -308,11 +327,21 @@ export default function WheelPage() {
               </div>
             ) : (
               extracted.map((opt, i) => (
-                <div key={i} className="bg-white/70 p-3 rounded-xl border border-rose-100 flex items-center gap-3 shadow-sm animate-slide-up">
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-rose-200 to-pink-200 text-rose-700 flex items-center justify-center text-xs font-bold shrink-0 shadow-inner">
-                    {extracted.length - i}
+                <div key={i} className="bg-white/70 p-3 rounded-xl border border-rose-100 flex items-center justify-between gap-3 shadow-sm animate-slide-up">
+                  <div className="flex items-center gap-3 overflow-hidden">
+                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-rose-200 to-pink-200 text-rose-700 flex items-center justify-center text-xs font-bold shrink-0 shadow-inner">
+                      {extracted.length - i}
+                    </div>
+                    <span className="font-medium text-gray-700 truncate">{opt}</span>
                   </div>
-                  <span className="font-medium text-gray-700 truncate">{opt}</span>
+                  <button
+                    onClick={() => handleRestoreOption(i)}
+                    disabled={isSpinning}
+                    className="p-1.5 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors shrink-0 disabled:opacity-50"
+                    title="Ripristina nella ruota"
+                  >
+                    <Undo2 className="w-4 h-4" />
+                  </button>
                 </div>
               ))
             )}
