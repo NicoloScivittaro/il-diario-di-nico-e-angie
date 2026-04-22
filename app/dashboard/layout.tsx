@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { BookOpen, Image as ImageIcon, MapPin, Sparkles, Heart, Menu, X, Loader2, Dices, Trophy } from 'lucide-react';
+import { BookOpen, Image as ImageIcon, MapPin, Sparkles, Heart, Menu, X, Loader2, Dices, Trophy, Bell, Check } from 'lucide-react';
 import type { Session } from '@supabase/supabase-js';
 import { getSupabaseClient } from '@/lib/supabaseClient';
+import type { AppNotification } from '@/lib/types';
 
 const navigation = [
   { name: 'Diario', href: '/dashboard', icon: BookOpen },
@@ -28,6 +29,12 @@ export default function DashboardLayout({
   const supabase = useMemo(() => getSupabaseClient(), []);
   const [session, setSession] = useState<Session | null>(null);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
+
+  // Notifiche
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [showNotifs, setShowNotifs] = useState(false);
+  const partnerRole = session?.user.user_metadata?.partner_role;
+  const unreadCount = notifications.filter(n => !n.is_read).length;
 
   useEffect(() => {
     let isMounted = true;
@@ -81,9 +88,65 @@ export default function DashboardLayout({
     }
   };
 
+  useEffect(() => {
+    if (!partnerRole) return;
+
+    let isMounted = true;
+    
+    // Fetch iniziale
+    const fetchNotifs = async () => {
+      const { data } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('recipient_role', partnerRole)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      
+      if (data && isMounted) {
+        setNotifications(data as AppNotification[]);
+      }
+    };
+    fetchNotifs();
+
+    // Sottoscrizione Realtime
+    const channel = supabase.channel('realtime:notifications')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'notifications', filter: `recipient_role=eq.${partnerRole}` },
+        (payload) => {
+          if (!isMounted) return;
+          if (payload.eventType === 'INSERT') {
+            setNotifications(prev => [payload.new as AppNotification, ...prev]);
+          } else if (payload.eventType === 'UPDATE') {
+            setNotifications(prev => prev.map(n => n.id === payload.new.id ? payload.new as AppNotification : n));
+          } else if (payload.eventType === 'DELETE') {
+            setNotifications(prev => prev.filter(n => n.id !== payload.old.id));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, [partnerRole, supabase]);
+
+  const markAsRead = async (id: string) => {
+    await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+  };
+
+  const markAllAsRead = async () => {
+    const unreadIds = notifications.filter(n => !n.is_read).map(n => n.id);
+    if (unreadIds.length === 0) return;
+    
+    await supabase.from('notifications').update({ is_read: true }).in('id', unreadIds);
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+  };
+
   const displayName =
     session?.user.user_metadata?.full_name || session?.user.email || 'Ospite';
-  const partnerRole = session?.user.user_metadata?.partner_role;
   const avatarInitial = displayName?.charAt(0)?.toUpperCase() || 'N';
   const roleLabel =
     partnerRole === 'angelica'
@@ -107,6 +170,73 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-purple-50">
+      
+      {/* Notifications Bell */}
+      <div className="fixed top-4 right-16 lg:top-8 lg:right-12 z-[60]">
+        <button 
+          onClick={() => setShowNotifs(!showNotifs)}
+          className="relative p-2.5 sm:p-3 rounded-full bg-white/80 backdrop-blur-md shadow-lg text-rose-600 border border-rose-100 hover:bg-rose-50 transition"
+        >
+          <Bell className="w-6 h-6" />
+          {unreadCount > 0 && (
+            <span className="absolute top-0 right-0 -mt-1 -mr-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-sm ring-2 ring-white animate-bounce-short">
+              {unreadCount}
+            </span>
+          )}
+        </button>
+
+        {showNotifs && (
+          <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-rose-100 overflow-hidden animate-slide-up origin-top-right">
+            <div className="p-4 border-b border-rose-50 flex items-center justify-between bg-rose-50/50">
+              <h3 className="font-bold text-gray-800">Notifiche</h3>
+              {unreadCount > 0 && (
+                <button onClick={markAllAsRead} className="text-xs text-rose-500 hover:text-rose-700 font-medium">
+                  Segna lette
+                </button>
+              )}
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto custom-scrollbar">
+              {notifications.length === 0 ? (
+                <div className="p-8 text-center text-gray-400 text-sm italic">
+                  Nessuna notifica al momento.
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-50">
+                  {notifications.map(notif => (
+                    <div 
+                      key={notif.id} 
+                      className={`p-4 transition hover:bg-gray-50 flex gap-3 ${notif.is_read ? 'opacity-70' : 'bg-rose-50/30'}`}
+                      onClick={() => {
+                        if (!notif.is_read) markAsRead(notif.id);
+                        if (notif.link) router.push(notif.link);
+                        setShowNotifs(false);
+                      }}
+                    >
+                      <div className="mt-1">
+                        {!notif.is_read ? (
+                          <div className="w-2 h-2 rounded-full bg-rose-500" />
+                        ) : (
+                          <Check className="w-3 h-3 text-gray-300" />
+                        )}
+                      </div>
+                      <div className="flex-1 cursor-pointer">
+                        <p className={`text-sm ${notif.is_read ? 'text-gray-600 font-medium' : 'text-gray-900 font-bold'}`}>
+                          {notif.title}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-0.5 leading-snug">{notif.body}</p>
+                        <p className="text-[10px] text-gray-400 mt-2">
+                          {new Date(notif.created_at).toLocaleString('it-IT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Mobile menu button */}
       <div className="lg:hidden fixed top-4 right-4 z-50">
         <button

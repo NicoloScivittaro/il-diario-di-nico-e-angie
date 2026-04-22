@@ -15,3 +15,14 @@ export type Place = {
     author_id?: string | null;
     created_at?: string | null;
 };
+
+export type AppNotification = {
+    id: string;
+    actor_id: string;
+    recipient_role: string;
+    title: string;
+    body: string;
+    link?: string | null;
+    is_read: boolean;
+    created_at: string;
+};

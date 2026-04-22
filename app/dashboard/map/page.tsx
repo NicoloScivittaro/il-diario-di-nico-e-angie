@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { getSupabaseClient } from '@/lib/supabaseClient';
+import { sendNotification } from '@/lib/notifications';
 import {
   MapPin, Search, Plus, Navigation, X, Loader2, Trash2, Map as MapIcon
 } from 'lucide-react';
@@ -144,6 +145,15 @@ export default function MapPage() {
         } else if (data) {
           setPlaces((prev) => [...prev, normalizePlace(data as unknown as Place)]);
           savedToDb = true;
+          
+          // Invia notifica al partner
+          const partnerRole = session.user.user_metadata?.partner_role;
+          await sendNotification(
+            'Nuovo Luogo',
+            `È stato aggiunto un nuovo posto: ${formName}`,
+            '/dashboard/map',
+            partnerRole
+          );
         }
       } catch (err) {
         dbErrorMsg = (err as Error).message;
