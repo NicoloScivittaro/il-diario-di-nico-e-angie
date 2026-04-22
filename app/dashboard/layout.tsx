@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { BookOpen, Image as ImageIcon, MapPin, Sparkles, Heart, Menu, X, Loader2, Dices } from 'lucide-react';
+import { BookOpen, Image as ImageIcon, MapPin, Sparkles, Heart, Menu, X, Loader2, Dices, Trophy } from 'lucide-react';
 import type { Session } from '@supabase/supabase-js';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 
@@ -11,6 +11,7 @@ const navigation = [
   { name: 'Diario', href: '/dashboard', icon: BookOpen },
   { name: 'Album', href: '/dashboard/album', icon: ImageIcon },
   { name: 'Le nostre passeggiate', href: '/dashboard/map', icon: MapPin },
+  { name: 'Classifica', href: '/dashboard/rankings', icon: Trophy },
   { name: 'Il nostro amore', href: '/dashboard/love-sections', icon: Sparkles },
   { name: 'I nostri ricordi', href: '/dashboard/memories', icon: Heart },
   { name: 'Cosa facciamo?', href: '/dashboard/wheel', icon: Dices },
