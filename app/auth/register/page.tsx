@@ -31,16 +31,10 @@ export default function RegisterPage() {
     setError('');
 
     try {
-      const redirectTo =
-        typeof window !== 'undefined'
-          ? `${window.location.origin}/auth/login`
-          : undefined;
-
-      const { error: signUpError } = await supabase.auth.signUp({
+      const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: redirectTo,
           data: {
             full_name: name,
             partner_role: role,
@@ -53,7 +47,20 @@ export default function RegisterPage() {
         return;
       }
 
-      router.push('/auth/verify-email');
+      // Se non c'è una sessione attiva (es. se c'è un ritardo), forziamo il login
+      if (!data.session) {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        
+        if (signInError) {
+          setError('Registrazione ok, ma errore nel login automatico. Vai alla pagina di accesso.');
+          return;
+        }
+      }
+
+      router.push('/dashboard');
     } catch (err) {
       setError('Si è verificato un errore durante la registrazione. Riprova.');
       console.error('Registration error:', err);
