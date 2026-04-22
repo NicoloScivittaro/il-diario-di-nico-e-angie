@@ -14,14 +14,14 @@ const caveat = Caveat({
 });
 
 export const metadata: Metadata = {
-  title: "Il Nostro Amore",
+  title: "Il nostro diario",
   description: "Il diario condiviso di Nico & Angie",
-  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Amore ❤️",
+    title: "Il nostro diario",
   },
+  applicationName: "Il nostro diario",
   formatDetection: {
     telephone: false,
   },
