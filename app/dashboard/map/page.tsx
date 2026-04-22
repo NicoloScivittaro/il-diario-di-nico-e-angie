@@ -189,9 +189,9 @@ export default function MapPage() {
   }
 
   return (
-    <div className="w-full h-[calc(100vh-140px)] flex flex-col md:flex-row gap-6 relative">
+    <div className="w-full min-h-[calc(100vh-140px)] md:h-[calc(100vh-140px)] flex flex-col md:flex-row gap-6 relative">
       {/* Sidebar */}
-      <div className="w-full md:w-80 flex flex-col gap-4 h-full">
+      <div className="w-full md:w-80 flex flex-col gap-4 h-auto md:h-full max-h-[50vh] md:max-h-none">
         <div className="glass-card p-4 rounded-2xl flex flex-col gap-4">
           <h1 className="text-2xl font-handwritten font-bold text-rose-800 flex items-center gap-2">
             <Navigation className="w-6 h-6 text-rose-500" />
@@ -247,7 +247,7 @@ export default function MapPage() {
       </div>
 
       {/* Map Container */}
-      <div className="flex-1 glass-card rounded-3xl overflow-hidden shadow-xl border border-white/60 relative">
+      <div className="flex-1 min-h-[400px] md:min-h-0 glass-card rounded-3xl overflow-hidden shadow-xl border border-white/60 relative">
         <Map
           places={filteredPlaces}
           center={center}
