@@ -30,11 +30,13 @@ export default function DashboardLayout({
   const [session, setSession] = useState<Session | null>(null);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
 
-  // Notifiche
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [showNotifs, setShowNotifs] = useState(false);
+  const [isPushSubscribed, setIsPushSubscribed] = useState(false);
   const partnerRole = session?.user.user_metadata?.partner_role;
   const unreadCount = notifications.filter(n => !n.is_read).length;
+
+  const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
 
   useEffect(() => {
     let isMounted = true;
@@ -145,6 +147,50 @@ export default function DashboardLayout({
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
   };
 
+  // --- WEB PUSH LOGIC ---
+  useEffect(() => {
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      navigator.serviceWorker.register('/sw.js').then(reg => {
+        reg.pushManager.getSubscription().then(sub => {
+          setIsPushSubscribed(sub !== null);
+        });
+      });
+    }
+  }, []);
+
+  const subscribeToPush = async () => {
+    if (!('serviceWorker' in navigator)) return alert('Browser non supportato');
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      
+      const padding = '='.repeat((4 - VAPID_PUBLIC_KEY.length % 4) % 4);
+      const base64 = (VAPID_PUBLIC_KEY + padding).replace(/\-/g, '+').replace(/_/g, '/');
+      const rawData = window.atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+      }
+
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: outputArray
+      });
+
+      await fetch('/api/web-push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription })
+      });
+
+      setIsPushSubscribed(true);
+      alert('Notifiche push attivate con successo!');
+    } catch (e) {
+      console.error(e);
+      alert('Impossibile attivare le notifiche push. Hai negato il permesso?');
+    }
+  };
+  // ----------------------
+
   const displayName =
     session?.user.user_metadata?.full_name || session?.user.email || 'Ospite';
   const avatarInitial = displayName?.charAt(0)?.toUpperCase() || 'N';
@@ -186,12 +232,22 @@ export default function DashboardLayout({
         </button>
 
         {showNotifs && (
-          <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-rose-100 overflow-hidden animate-slide-up origin-top-right">
-            <div className="p-4 border-b border-rose-50 flex items-center justify-between bg-rose-50/50">
-              <h3 className="font-bold text-gray-800">Notifiche</h3>
-              {unreadCount > 0 && (
-                <button onClick={markAllAsRead} className="text-xs text-rose-500 hover:text-rose-700 font-medium">
-                  Segna lette
+          <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-rose-100 overflow-hidden animate-slide-up origin-top-right flex flex-col">
+            <div className="p-4 border-b border-rose-50 flex flex-col gap-3 bg-rose-50/50">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-gray-800">Notifiche</h3>
+                {unreadCount > 0 && (
+                  <button onClick={markAllAsRead} className="text-xs text-rose-500 hover:text-rose-700 font-medium">
+                    Segna lette
+                  </button>
+                )}
+              </div>
+              {!isPushSubscribed && (
+                <button 
+                  onClick={subscribeToPush}
+                  className="w-full py-1.5 px-3 bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold rounded-lg shadow-sm transition"
+                >
+                  Attiva Notifiche Push
                 </button>
               )}
             </div>

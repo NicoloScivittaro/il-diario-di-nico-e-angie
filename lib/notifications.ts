@@ -25,6 +25,21 @@ export async function sendNotification(
       body,
       link
     });
+
+    // 2. Invia la vera Push Notification al telefono
+    await fetch('/api/web-push/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        title,
+        body,
+        link,
+        recipientRole
+      })
+    });
+
   } catch (error) {
     console.error('Errore invio notifica:', error);
   }
