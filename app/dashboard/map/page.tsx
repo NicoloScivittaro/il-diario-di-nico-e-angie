@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { sendNotification } from '@/lib/notifications';
@@ -58,6 +59,20 @@ export default function MapPage() {
 
     setFilteredPlaces(result);
   }, [places, filter, searchQuery]);
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (isAdding || selectedPlace) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [isAdding, selectedPlace]);
 
   const normalizePlace = (p: Place): Place => ({
     ...p,
@@ -266,104 +281,181 @@ export default function MapPage() {
           onMarkerClick={(p) => setSelectedPlace(normalizePlace(p))}
         />
 
-      </div>
-
-      {/* Modale indipendente per evitare il taglio su mobile dovuto all'overflow-hidden del parent */}
-      {(isAdding || selectedPlace) && (
-        <>
-          {/* Overlay su mobile per chiudere cliccando fuori */}
-          <div 
-            className="md:hidden fixed inset-0 bg-black/20 z-[1999] backdrop-blur-sm transition-opacity" 
-            onClick={() => { setIsAdding(false); setSelectedPlace(null); }} 
-          />
-          
-          <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 md:absolute md:top-4 md:right-4 md:translate-y-0 md:inset-x-auto w-auto md:w-72 max-h-[85vh] overflow-y-auto bg-white/95 backdrop-blur-xl p-5 rounded-2xl shadow-2xl z-[2000] border border-rose-100 animate-slide-up custom-scrollbar">
-            <button
-              onClick={() => { setIsAdding(false); setSelectedPlace(null); }}
-              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 bg-white/50 hover:bg-white rounded-full p-1 transition-colors z-10"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            {isAdding ? (
-              <form onSubmit={handleSavePlace} className="space-y-4">
-                <h3 className="font-bold text-lg text-rose-800 flex items-center gap-2 pr-6">
+        {/* --- DESKTOP MODAL (Inline, non blocca il DOM mobile) --- */}
+        {(isAdding || selectedPlace) && (
+          <div className="hidden md:flex absolute top-4 right-4 w-80 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl z-[1000] border border-rose-100 flex-col max-h-[calc(100%-2rem)] overflow-hidden animate-slide-up">
+            <div className="p-4 border-b border-rose-50 flex items-center justify-between flex-shrink-0">
+              {isAdding ? (
+                <h3 className="font-bold text-lg text-rose-800 flex items-center gap-2">
                   <Plus className="w-5 h-5" /> Nuovo Luogo
                 </h3>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1">Nome</label>
-                  <input
-                    required
-                    value={formName}
-                    onChange={(e) => setFormName(e.target.value)}
-                    className="w-full text-sm p-2 rounded-lg bg-gray-50 border focus:border-rose-400 outline-none"
-                    placeholder="Es. Colosseo"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
+              ) : (
+                <h3 className="font-bold text-xl text-gray-800 truncate pr-2">{selectedPlace?.name}</h3>
+              )}
+              <button onClick={() => { setIsAdding(false); setSelectedPlace(null); }} className="text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full p-1.5 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            {/* Desktop Body & Footer */}
+            {isAdding ? (
+              <form onSubmit={handleSavePlace} className="flex flex-col overflow-hidden h-full">
+                <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
                   <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-1">Categoria</label>
-                    <select value={formCategory} onChange={(e) => setFormCategory(e.target.value)} className="w-full text-sm p-2 rounded-lg bg-gray-50 border outline-none">
-                      {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                    </select>
+                    <label className="block text-xs font-bold text-gray-500 mb-1">Nome</label>
+                    <input required value={formName} onChange={(e) => setFormName(e.target.value)} className="w-full text-sm p-2 rounded-lg bg-gray-50 border focus:border-rose-400 outline-none" placeholder="Es. Colosseo" />
                   </div>
-
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 mb-1">Categoria</label>
+                      <select value={formCategory} onChange={(e) => setFormCategory(e.target.value)} className="w-full text-sm p-2 rounded-lg bg-gray-50 border outline-none">
+                        {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 mb-1">Stato</label>
+                      <select value={formStatus} onChange={(e) => setFormStatus(e.target.value as any)} className="w-full text-sm p-2 rounded-lg bg-gray-50 border outline-none">
+                        <option value="visited">Visitato</option>
+                        <option value="to_visit">Da vedere</option>
+                      </select>
+                    </div>
+                  </div>
+                  {formStatus === 'visited' && (
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 mb-1">Voto: {formRating}/10</label>
+                      <input type="range" min="1" max="10" value={formRating} onChange={(e) => setFormRating(Number(e.target.value))} className="w-full accent-rose-500" />
+                    </div>
+                  )}
                   <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-1">Stato</label>
-                    <select value={formStatus} onChange={(e) => setFormStatus(e.target.value as any)} className="w-full text-sm p-2 rounded-lg bg-gray-50 border outline-none">
-                      <option value="visited">Visitato</option>
-                      <option value="to_visit">Da vedere</option>
-                    </select>
+                    <label className="block text-xs font-bold text-gray-500 mb-1">Ricordo / Note</label>
+                    <textarea value={formNotes} onChange={(e) => setFormNotes(e.target.value)} className="w-full text-sm p-2 rounded-lg bg-gray-50 border focus:border-rose-400 outline-none h-20 resize-none font-handwritten" placeholder="Scrivi un pensiero..." />
                   </div>
                 </div>
-
-                {formStatus === 'visited' && (
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-1">Voto: {formRating}/10</label>
-                    <input type="range" min="1" max="10" value={formRating} onChange={(e) => setFormRating(Number(e.target.value))} className="w-full accent-rose-500" />
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1">Ricordo / Note</label>
-                  <textarea value={formNotes} onChange={(e) => setFormNotes(e.target.value)} className="w-full text-sm p-2 rounded-lg bg-gray-50 border focus:border-rose-400 outline-none h-20 resize-none font-handwritten" placeholder="Scrivi un pensiero..." />
-                </div>
-
-                <div className="sticky bottom-0 pt-2 bg-white/95 backdrop-blur-sm -mx-2 px-2 pb-1 mt-2">
-                  <button type="submit" disabled={isSaving} className="w-full bg-rose-500 text-white font-bold py-2 rounded-xl shadow-md hover:bg-rose-600 transition flex justify-center">
+                <div className="p-4 border-t border-rose-50 bg-white flex-shrink-0">
+                  <button type="submit" disabled={isSaving} className="w-full bg-rose-500 text-white font-bold py-2.5 rounded-xl shadow-md hover:bg-rose-600 transition flex justify-center">
                     {isSaving ? <Loader2 className="animate-spin w-5 h-5" /> : 'Salva Luogo'}
                   </button>
                 </div>
               </form>
             ) : selectedPlace ? (
-              <div className="space-y-4">
-                <h3 className="font-bold text-xl text-gray-800 pr-6">{selectedPlace.name}</h3>
-
-                <div className="flex gap-2">
-                  <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600">
-                    {selectedPlace.category ?? 'Altro'}
-                  </span>
-                </div>
-
-                {selectedPlace.notes && (
-                  <div className="bg-rose-50 p-3 rounded-xl border border-rose-100">
-                    <p className="font-handwritten text-gray-700 leading-relaxed italic">
-                      "{selectedPlace.notes}"
-                    </p>
+              <div className="flex flex-col overflow-hidden h-full">
+                <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+                  <div className="flex gap-2">
+                    <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600">{selectedPlace.category ?? 'Altro'}</span>
                   </div>
-                )}
-
-                <div className="pt-4 border-t border-gray-100 flex justify-end sticky bottom-0 bg-white/95 backdrop-blur-sm -mx-2 px-2 pb-1">
-                  <button onClick={() => handleDelete(selectedPlace.id)} className="text-red-400 hover:text-red-600 text-xs flex items-center gap-1 bg-white px-3 py-1.5 rounded-lg shadow-sm border border-red-100 transition-colors">
-                    <Trash2 className="w-3 h-3" /> Elimina
+                  {selectedPlace.notes && (
+                    <div className="bg-rose-50 p-3 rounded-xl border border-rose-100">
+                      <p className="font-handwritten text-gray-700 leading-relaxed italic">"{selectedPlace.notes}"</p>
+                    </div>
+                  )}
+                </div>
+                <div className="p-4 border-t border-rose-50 bg-white flex-shrink-0">
+                  <button onClick={() => handleDelete(selectedPlace.id)} className="w-full text-red-500 hover:text-red-700 font-bold py-2 rounded-xl flex items-center justify-center gap-2 bg-red-50 hover:bg-red-100 transition-colors">
+                    <Trash2 className="w-4 h-4" /> Elimina Luogo
                   </button>
                 </div>
               </div>
             ) : null}
           </div>
-        </>
+        )}
+      </div>
+
+      {/* --- MOBILE MODAL (Portaled in body, 100% immune al layout parent) --- */}
+      {(isAdding || selectedPlace) && mounted && createPortal(
+        <div className="md:hidden fixed inset-0 z-[9999] flex flex-col justify-end pointer-events-auto">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity" 
+            onClick={() => { setIsAdding(false); setSelectedPlace(null); }} 
+          />
+          
+          {/* Bottom Sheet Modal */}
+          <div className="relative w-full bg-white rounded-t-3xl shadow-2xl border-t border-rose-100 animate-slide-up flex flex-col max-h-[90dvh] overflow-hidden">
+            {/* Header fisso */}
+            <div className="p-5 border-b border-rose-50 flex items-center justify-between flex-shrink-0 bg-white z-10">
+              {isAdding ? (
+                <h3 className="font-bold text-lg text-rose-800 flex items-center gap-2">
+                  <Plus className="w-5 h-5" /> Nuovo Luogo
+                </h3>
+              ) : (
+                <h3 className="font-bold text-xl text-gray-800 truncate pr-2">{selectedPlace?.name}</h3>
+              )}
+              <button 
+                onClick={() => { setIsAdding(false); setSelectedPlace(null); }} 
+                className="text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full p-2 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            {/* Corpo scorrevole e Footer fisso */}
+            {isAdding ? (
+              <form onSubmit={handleSavePlace} className="flex flex-col overflow-hidden h-full">
+                {/* Scrollable Body */}
+                <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar pb-6">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-500 mb-1.5">Nome</label>
+                    <input required value={formName} onChange={(e) => setFormName(e.target.value)} className="w-full text-base p-3 rounded-xl bg-gray-50 border focus:border-rose-400 outline-none" placeholder="Es. Colosseo" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-bold text-gray-500 mb-1.5">Categoria</label>
+                      <select value={formCategory} onChange={(e) => setFormCategory(e.target.value)} className="w-full text-base p-3 rounded-xl bg-gray-50 border outline-none">
+                        {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-500 mb-1.5">Stato</label>
+                      <select value={formStatus} onChange={(e) => setFormStatus(e.target.value as any)} className="w-full text-base p-3 rounded-xl bg-gray-50 border outline-none">
+                        <option value="visited">Visitato</option>
+                        <option value="to_visit">Da vedere</option>
+                      </select>
+                    </div>
+                  </div>
+                  {formStatus === 'visited' && (
+                    <div>
+                      <label className="block text-sm font-bold text-gray-500 mb-1.5">Voto: {formRating}/10</label>
+                      <input type="range" min="1" max="10" value={formRating} onChange={(e) => setFormRating(Number(e.target.value))} className="w-full accent-rose-500" />
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-sm font-bold text-gray-500 mb-1.5">Ricordo / Note</label>
+                    <textarea value={formNotes} onChange={(e) => setFormNotes(e.target.value)} className="w-full text-base p-3 rounded-xl bg-gray-50 border focus:border-rose-400 outline-none h-24 resize-none font-handwritten" placeholder="Scrivi un pensiero..." />
+                  </div>
+                </div>
+
+                {/* Fixed Footer */}
+                <div className="p-4 border-t border-rose-50 bg-white flex-shrink-0 z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] pb-safe">
+                  <button type="submit" disabled={isSaving} className="w-full bg-rose-500 text-white font-bold py-3.5 rounded-xl shadow-md hover:bg-rose-600 transition flex justify-center text-lg">
+                    {isSaving ? <Loader2 className="animate-spin w-6 h-6" /> : 'Salva Luogo'}
+                  </button>
+                </div>
+              </form>
+            ) : selectedPlace ? (
+              <div className="flex flex-col overflow-hidden h-full">
+                {/* Scrollable Body */}
+                <div className="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar pb-6">
+                  <div className="flex gap-2">
+                    <span className="text-sm px-3 py-1.5 rounded-full bg-gray-100 text-gray-600">{selectedPlace.category ?? 'Altro'}</span>
+                  </div>
+                  {selectedPlace.notes && (
+                    <div className="bg-rose-50 p-4 rounded-xl border border-rose-100">
+                      <p className="font-handwritten text-gray-700 leading-relaxed italic text-lg">"{selectedPlace.notes}"</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Fixed Footer */}
+                <div className="p-4 border-t border-rose-50 bg-white flex-shrink-0 z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] pb-safe">
+                  <button onClick={() => handleDelete(selectedPlace.id)} className="w-full text-red-500 hover:text-red-700 font-bold py-3 rounded-xl flex items-center justify-center gap-2 bg-red-50 hover:bg-red-100 transition-colors text-lg">
+                    <Trash2 className="w-5 h-5" /> Elimina Luogo
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );
