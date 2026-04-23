@@ -150,43 +150,89 @@ export default function DashboardLayout({
   // --- WEB PUSH LOGIC ---
   useEffect(() => {
     if ('serviceWorker' in navigator && 'PushManager' in window) {
-      navigator.serviceWorker.register('/sw.js').then(reg => {
-        reg.pushManager.getSubscription().then(sub => {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => {
+          return reg.pushManager.getSubscription();
+        })
+        .then(sub => {
           setIsPushSubscribed(sub !== null);
-        });
-      });
+        })
+        .catch(err => console.error('Errore registrazione service worker:', err));
     }
   }, []);
 
+  const urlBase64ToUint8Array = (base64String: string) => {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  };
+
   const subscribeToPush = async () => {
-    if (!('serviceWorker' in navigator)) return alert('Browser non supportato');
+    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+      alert('Il tuo browser non supporta le notifiche push.');
+      return;
+    }
+
     try {
-      const registration = await navigator.serviceWorker.ready;
-      
-      const padding = '='.repeat((4 - VAPID_PUBLIC_KEY.length % 4) % 4);
-      const base64 = (VAPID_PUBLIC_KEY + padding).replace(/\-/g, '+').replace(/_/g, '/');
-      const rawData = window.atob(base64);
-      const outputArray = new Uint8Array(rawData.length);
-      for (let i = 0; i < rawData.length; ++i) {
-        outputArray[i] = rawData.charCodeAt(i);
+      // 1. Controlla e richiedi permesso esplicitamente
+      let permission = Notification.permission;
+      if (permission === 'default') {
+        permission = await Notification.requestPermission();
       }
 
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: outputArray
-      });
+      if (permission === 'denied') {
+        alert('Hai bloccato le notifiche. Sbloccale dalle impostazioni del browser (lato url bar) e riprova.');
+        return;
+      }
+      
+      if (permission !== 'granted') {
+        alert('Permesso non concesso, riprova.');
+        return;
+      }
 
-      await fetch('/api/web-push/subscribe', {
+      // 2. Ottieni registrazione Service Worker
+      const registration = await navigator.serviceWorker.ready;
+      if (!registration) {
+        throw new Error('Service Worker non è pronto o non registrato.');
+      }
+
+      if (!VAPID_PUBLIC_KEY) {
+        throw new Error('Manca la VAPID_PUBLIC_KEY nelle variabili di ambiente.');
+      }
+
+      // 3. Iscrizione al Push Manager
+      let subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        const applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey
+        });
+      }
+
+      // 4. Salva sul DB
+      const res = await fetch('/api/web-push/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ subscription })
       });
 
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.error || `Errore backend API (status ${res.status})`);
+      }
+
       setIsPushSubscribed(true);
-      alert('Notifiche push attivate con successo!');
-    } catch (e) {
-      console.error(e);
-      alert('Impossibile attivare le notifiche push. Hai negato il permesso?');
+      alert('Notifiche push attivate con successo! 💌');
+
+    } catch (e: any) {
+      console.error('Errore dettagliato attivazione push:', e);
+      alert(`Errore: ${e.message || 'Errore sconosciuto. Dettagli in console.'}`);
     }
   };
   // ----------------------
