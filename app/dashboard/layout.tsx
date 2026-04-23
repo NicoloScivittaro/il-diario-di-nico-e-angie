@@ -36,7 +36,7 @@ export default function DashboardLayout({
   const partnerRole = session?.user.user_metadata?.partner_role;
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
-  const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
+  const NEXT_PUBLIC_VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
 
   useEffect(() => {
     let isMounted = true;
@@ -195,20 +195,22 @@ export default function DashboardLayout({
         return;
       }
 
+      console.log('NEXT_PUBLIC_VAPID_PUBLIC_KEY presente?', !!NEXT_PUBLIC_VAPID_PUBLIC_KEY);
+
       // 2. Ottieni registrazione Service Worker
       const registration = await navigator.serviceWorker.ready;
       if (!registration) {
         throw new Error('Service Worker non è pronto o non registrato.');
       }
 
-      if (!VAPID_PUBLIC_KEY) {
-        throw new Error('Manca la VAPID_PUBLIC_KEY nelle variabili di ambiente.');
+      if (!NEXT_PUBLIC_VAPID_PUBLIC_KEY) {
+        throw new Error('Manca la NEXT_PUBLIC_VAPID_PUBLIC_KEY nelle variabili di ambiente client.');
       }
 
       // 3. Iscrizione al Push Manager
       let subscription = await registration.pushManager.getSubscription();
       if (!subscription) {
-        const applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+        const applicationServerKey = urlBase64ToUint8Array(NEXT_PUBLIC_VAPID_PUBLIC_KEY);
         subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey
