@@ -15,12 +15,12 @@ export async function sendNotification(
   if (!userId) return;
 
   // L'altro partner riceverà la notifica
-  const recipient_role = currentPartnerRole === 'nicolo' ? 'angelica' : 'nicolo';
+  const recipientRole = currentPartnerRole === 'nicolo' ? 'angelica' : 'nicolo';
 
   try {
     await supabase.from('notifications').insert({
       actor_id: userId,
-      recipient_role,
+      recipient_role: recipientRole,
       title,
       body,
       link
