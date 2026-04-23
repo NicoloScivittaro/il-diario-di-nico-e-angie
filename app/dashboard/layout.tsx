@@ -221,7 +221,11 @@ export default function DashboardLayout({
       const res = await fetch('/api/web-push/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subscription })
+        body: JSON.stringify({ 
+          subscription,
+          userId: session?.user?.id,
+          userRole: partnerRole || 'sconosciuto'
+        })
       });
 
       if (!res.ok) {
