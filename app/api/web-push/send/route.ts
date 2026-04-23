@@ -4,6 +4,39 @@ import webpush from "web-push";
 
 export const runtime = "nodejs";
 
+function isSupabaseDebugEnabled() {
+  return process.env.SUPABASE_DEBUG === "1";
+}
+
+function getSafeKeyPrefix(key: string) {
+  return `${key.slice(0, 8)}…(len:${key.length})`;
+}
+
+function getSafeSupabaseHost(url: string) {
+  try {
+    return new URL(url).host;
+  } catch {
+    return "invalid_url";
+  }
+}
+
+function toPublicErrorMessage(err: unknown) {
+  const message = err instanceof Error ? err.message : String(err);
+  return message || "Errore server";
+}
+
+function getStatusFromErrorMessage(message: string) {
+  if (/invalid api key/i.test(message)) {
+    return 401;
+  }
+
+  if (/missing env/i.test(message)) {
+    return 500;
+  }
+
+  return 500;
+}
+
 function getRequiredEnv() {
   const supabaseUrl =
     process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
@@ -49,6 +82,14 @@ function getWebPush() {
 function getSupabaseAdmin() {
   const { supabaseUrl, serviceRoleKey } = getRequiredEnv();
 
+  if (isSupabaseDebugEnabled()) {
+    console.log("[supabase-admin][send] urlHost=", getSafeSupabaseHost(supabaseUrl));
+    console.log(
+      "[supabase-admin][send] serviceRoleKey=",
+      getSafeKeyPrefix(serviceRoleKey)
+    );
+  }
+
   return createClient(supabaseUrl, serviceRoleKey);
 }
 
@@ -74,6 +115,22 @@ export async function POST(req: Request) {
     const supabaseAdmin = getSupabaseAdmin();
     const wp = getWebPush();
 
+    if (isSupabaseDebugEnabled()) {
+      const { error: healthError } = await supabaseAdmin
+        .from("push_subscriptions")
+        .select("id")
+        .limit(1);
+
+      if (healthError) {
+        console.error("[supabase-admin][send] health-check error:", {
+          message: healthError.message,
+          code: (healthError as any).code,
+        });
+      } else {
+        console.log("[supabase-admin][send] health-check ok");
+      }
+    }
+
     const { data: subscriptions, error } = await supabaseAdmin
       .from("push_subscriptions")
       .select("id, endpoint, p256dh, auth, user_role")
@@ -82,8 +139,8 @@ export async function POST(req: Request) {
     if (error) {
       console.error("Errore lettura subscriptions:", error);
       return NextResponse.json(
-        { error: "Errore lettura subscriptions" },
-        { status: 500 }
+        { error: error.message || "Errore lettura subscriptions" },
+        { status: getStatusFromErrorMessage(error.message || "") }
       );
     }
 
@@ -136,12 +193,7 @@ export async function POST(req: Request) {
     });
   } catch (error: any) {
     console.error("Errore Web Push API:", error);
-
-    return NextResponse.json(
-      {
-        error: error?.message || "Errore server",
-      },
-      { status: 500 }
-    );
+    const message = toPublicErrorMessage(error);
+    return NextResponse.json({ error: message }, { status: getStatusFromErrorMessage(message) });
   }
 }
