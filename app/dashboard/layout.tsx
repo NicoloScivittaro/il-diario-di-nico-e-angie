@@ -222,8 +222,7 @@ export default function DashboardLayout({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          subscription,
-          userId: session?.user?.id,
+          subscription: subscription.toJSON(),
           userRole: partnerRole || 'sconosciuto'
         })
       });

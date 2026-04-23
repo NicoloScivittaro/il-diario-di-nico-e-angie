@@ -59,14 +59,14 @@ function getSupabaseAdmin() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { subscription, userId, userRole } = body;
+    const { subscription, userRole } = body;
 
     if (!subscription || !subscription.endpoint || !subscription.keys) {
       return NextResponse.json({ error: 'Subscription non valida' }, { status: 400 });
     }
 
-    if (!userId || !userRole) {
-      return NextResponse.json({ error: 'Mancano userId o userRole dal client' }, { status: 400 });
+    if (!userRole) {
+      return NextResponse.json({ error: 'Manca userRole dal client' }, { status: 400 });
     }
 
     const supabaseAdmin = getSupabaseAdmin();
@@ -100,7 +100,6 @@ export async function POST(req: Request) {
 
     if (!existing) {
       const { error: insertError } = await supabaseAdmin.from('push_subscriptions').insert({
-        user_id: userId,
         user_role: userRole,
         endpoint: subscription.endpoint,
         p256dh: subscription.keys.p256dh,
