@@ -266,18 +266,28 @@ export default function MapPage() {
           onMarkerClick={(p) => setSelectedPlace(normalizePlace(p))}
         />
 
-        {(isAdding || selectedPlace) && (
-          <div className="absolute top-4 right-4 w-72 bg-white/95 backdrop-blur-xl p-5 rounded-2xl shadow-2xl z-[1000] border border-rose-100 animate-slide-up">
+      </div>
+
+      {/* Modale indipendente per evitare il taglio su mobile dovuto all'overflow-hidden del parent */}
+      {(isAdding || selectedPlace) && (
+        <>
+          {/* Overlay su mobile per chiudere cliccando fuori */}
+          <div 
+            className="md:hidden fixed inset-0 bg-black/20 z-[1999] backdrop-blur-sm transition-opacity" 
+            onClick={() => { setIsAdding(false); setSelectedPlace(null); }} 
+          />
+          
+          <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 md:absolute md:top-4 md:right-4 md:translate-y-0 md:inset-x-auto w-auto md:w-72 max-h-[85vh] overflow-y-auto bg-white/95 backdrop-blur-xl p-5 rounded-2xl shadow-2xl z-[2000] border border-rose-100 animate-slide-up custom-scrollbar">
             <button
               onClick={() => { setIsAdding(false); setSelectedPlace(null); }}
-              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 bg-white/50 hover:bg-white rounded-full p-1 transition-colors z-10"
             >
               <X className="w-5 h-5" />
             </button>
 
             {isAdding ? (
               <form onSubmit={handleSavePlace} className="space-y-4">
-                <h3 className="font-bold text-lg text-rose-800 flex items-center gap-2">
+                <h3 className="font-bold text-lg text-rose-800 flex items-center gap-2 pr-6">
                   <Plus className="w-5 h-5" /> Nuovo Luogo
                 </h3>
 
@@ -321,13 +331,15 @@ export default function MapPage() {
                   <textarea value={formNotes} onChange={(e) => setFormNotes(e.target.value)} className="w-full text-sm p-2 rounded-lg bg-gray-50 border focus:border-rose-400 outline-none h-20 resize-none font-handwritten" placeholder="Scrivi un pensiero..." />
                 </div>
 
-                <button type="submit" disabled={isSaving} className="w-full bg-rose-500 text-white font-bold py-2 rounded-xl shadow-md hover:bg-rose-600 transition flex justify-center">
-                  {isSaving ? <Loader2 className="animate-spin w-5 h-5" /> : 'Salva Luogo'}
-                </button>
+                <div className="sticky bottom-0 pt-2 bg-white/95 backdrop-blur-sm -mx-2 px-2 pb-1 mt-2">
+                  <button type="submit" disabled={isSaving} className="w-full bg-rose-500 text-white font-bold py-2 rounded-xl shadow-md hover:bg-rose-600 transition flex justify-center">
+                    {isSaving ? <Loader2 className="animate-spin w-5 h-5" /> : 'Salva Luogo'}
+                  </button>
+                </div>
               </form>
             ) : selectedPlace ? (
               <div className="space-y-4">
-                <h3 className="font-bold text-xl text-gray-800">{selectedPlace.name}</h3>
+                <h3 className="font-bold text-xl text-gray-800 pr-6">{selectedPlace.name}</h3>
 
                 <div className="flex gap-2">
                   <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600">
@@ -343,16 +355,16 @@ export default function MapPage() {
                   </div>
                 )}
 
-                <div className="pt-4 border-t border-gray-100 flex justify-end">
-                  <button onClick={() => handleDelete(selectedPlace.id)} className="text-red-400 hover:text-red-600 text-xs flex items-center gap-1">
+                <div className="pt-4 border-t border-gray-100 flex justify-end sticky bottom-0 bg-white/95 backdrop-blur-sm -mx-2 px-2 pb-1">
+                  <button onClick={() => handleDelete(selectedPlace.id)} className="text-red-400 hover:text-red-600 text-xs flex items-center gap-1 bg-white px-3 py-1.5 rounded-lg shadow-sm border border-red-100 transition-colors">
                     <Trash2 className="w-3 h-3" /> Elimina
                   </button>
                 </div>
               </div>
             ) : null}
           </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 }
